@@ -1,95 +1,66 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import './dropdown.css';
-// импортируем хуки из React и библиотеку Axios для запросов HTTP и CSS для списка
+import Dropdown from './Components/Dropdown';
+import CurrencyConverterInput from './Components/CurrencyInput';
+import ConversionResult from './Components/Result';
+import { fetchCurrencies, convertCurrency } from './Components/CurrencyService';
 
 interface ExProps {
   initialCurrency?: string;
 }
-// объявляем интерфейс ожидаемых свойств объекта
-interface DropdownProps {
-  options: { value: string; label: string }[];
-  selectedValue: string;
-  onSelect: (value: string) => void;
-  className?: string;
+
+interface CurrencyDetail {
+  symbol: string;
+  name: string;
+  symbol_native: string;
+  decimal_digits: number;
+  rounding: number;
+  code: string;
+  name_plural: string;
 }
-// интерфейс списка валют
-const Dropdown: React.FC<DropdownProps> = ({ options, selectedValue, onSelect, className }) => {
-  const [isOpen, setIsOpen] = useState(false);
 
-  const handleSelect = (value: string) => {
-    onSelect(value);
-    setIsOpen(false);
-  };
+interface Currencies {
+  [currencyCode: string]: CurrencyDetail;
+}
 
-  return (
-    <div className={className ? className : ''}>
-      <button onClick={() => setIsOpen(!isOpen)}>{selectedValue}</button> 
-      {isOpen && (
-        <ul>
-          {options.map((option) => (
-            <li key={option.value} onClick={() => handleSelect(option.value)}>
-              {option.label}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-};
-// при клике на выпадающий список открывется и закрывается
-const ExFirst: React.FC<ExProps> = ({ initialCurrency = 'USD' }) => { // добавляем компонент ExFirst с определенным типом свойств ExProps, по умолчанию ставим на USD
-  const [fromCurrency, setFromCurrency] = useState<string>(initialCurrency); // выбранная валюта изначально устанавливается равным свойству компонента, который приходит
-  const [toCurrency, setToCurrency] = useState<string>('RUB'); // состояние которое хранит выбранную валюьу, следующая для обновления состояния
-  const [amount, setAmount] = useState(1); // сумма для конвертации по умолчанию и для обновления состояния
-  const [convertedAmount, setConvertedAmount] = useState<number | null>(null); // результат конвертации либо null (если не выполнен и ошибка) и обновление состояния
-  const [currencies, setCurrencies] = useState<any>({}); // здесь хранятся курсы от API и обновление состояния
-  // каждый вызов useState возвращает текущее состояние и функцию для его обновления
-  // прописываем переменные состояний зависимостей
+const ExFirst: React.FC<ExProps> = ({ initialCurrency = 'USD' }) => { 
+  const [fromCurrency, setFromCurrency] = useState<string>(initialCurrency);
+  const [toCurrency, setToCurrency] = useState<string>('RUB');
+  const [amount, setAmount] = useState(1);
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
+  const [currencies, setCurrencies] = useState<Currencies>({});
+
   useEffect(() => {
-    const fetchCurrencies = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get('https://api.freecurrencyapi.com/v1/currencies', {
-          headers: {
-            'apikey': 'fca_live_1ixQs5heSqJV1ByfDpwUGXbdJNd8KnaslxVmnSq6'
-          }
-        });
+        const response = await fetchCurrencies();
         setCurrencies(response.data.data);
       } catch (error) {
         console.error("Ошибка при получении информации о валютах:", error);
       }
     };
-
-    fetchCurrencies();
+  
+    fetchData();
   }, []);
-
+  
   const calculateConversion = async () => {
     try {
-        const response = await axios.get('https://api.freecurrencyapi.com/v1/latest', {
-            params: {
-                from: fromCurrency,
-                to: toCurrency
-            },
-            headers: {
-                'apikey': 'fca_live_1ixQs5heSqJV1ByfDpwUGXbdJNd8KnaslxVmnSq6'
-            }
-        });
+      const response = await convertCurrency(fromCurrency, toCurrency);
         
-        if(response.data && response.data.data && response.data.data[toCurrency]) {
-            const exchangeRate = response.data.data[toCurrency];
-            setConvertedAmount(amount * exchangeRate);
-        }
+      if (response.data && response.data.data && response.data.data[toCurrency]) {
+        const exchangeRate = response.data.data[toCurrency];
+        setConvertedAmount(amount * exchangeRate);
+      }
     } catch (error) {
-        console.error("Ошибка при конвертации:", error);
+      console.error("Ошибка при конвертации:", error);
     }
-};
+  };
 
   return (
     <div className="currency-converter">
-      <input 
-        type="number" 
-        value={amount} 
-        onChange={(e) => setAmount(+e.target.value)} 
+      <CurrencyConverterInput 
+        value={amount}
+        onChange={(value) => setAmount(value)}
         className="dropdown-input"
       />
 
@@ -116,9 +87,7 @@ const ExFirst: React.FC<ExProps> = ({ initialCurrency = 'USD' }) => { // доб�
       <button onClick={calculateConversion}>Рассчитать</button>
 
       {convertedAmount !== null && 
-        <div className="dropdown-result">
-          Результат: {convertedAmount.toFixed(2)} {toCurrency}
-        </div>
+        <ConversionResult amount={convertedAmount} currencyCode={toCurrency} />
       }
     </div>
   );
