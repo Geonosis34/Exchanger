@@ -1,26 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import './dropdown.css';
-import Dropdown from './Components/Dropdown';
+import Dropdown, {  renderDropdown } from './Components/Dropdown';
 import CurrencyConverterInput from './Components/CurrencyInput';
 import ConversionResult from './Components/Result';
-import { fetchCurrencies, convertCurrency } from './Components/CurrencyService';
+import currencyService, { CurrencyData } from './Components/CurrencyService';
 
 interface ExProps {
   initialCurrency?: string;
-}
-
-interface CurrencyDetail {
-  symbol: string;
-  name: string;
-  symbol_native: string;
-  decimal_digits: number;
-  rounding: number;
-  code: string;
-  name_plural: string;
-}
-
-interface Currencies {
-  [currencyCode: string]: CurrencyDetail;
 }
 
 const ExFirst: React.FC<ExProps> = ({ initialCurrency = 'USD' }) => { 
@@ -28,13 +14,13 @@ const ExFirst: React.FC<ExProps> = ({ initialCurrency = 'USD' }) => {
   const [toCurrency, setToCurrency] = useState<string>('RUB');
   const [amount, setAmount] = useState(1);
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
-  const [currencies, setCurrencies] = useState<Currencies>({});
+  const [currencies, setCurrencies] = useState<Record<string, CurrencyData>>({});
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetchCurrencies();
-        setCurrencies(response.data.data);
+        const response = await currencyService.fetchCurrencies();
+        setCurrencies(response.data);
       } catch (error) {
         console.error("Ошибка при получении информации о валютах:", error);
       }
@@ -45,10 +31,10 @@ const ExFirst: React.FC<ExProps> = ({ initialCurrency = 'USD' }) => {
   
   const calculateConversion = async () => {
     try {
-      const response = await convertCurrency(fromCurrency, toCurrency);
+      const response = await currencyService.convertCurrency(fromCurrency, toCurrency);
         
-      if (response.data && response.data.data && response.data.data[toCurrency]) {
-        const exchangeRate = response.data.data[toCurrency];
+      if (response.data && response.data[toCurrency]) {
+        const exchangeRate = response.data[toCurrency];
         setConvertedAmount(amount * exchangeRate);
       }
     } catch (error) {
@@ -63,29 +49,12 @@ const ExFirst: React.FC<ExProps> = ({ initialCurrency = 'USD' }) => {
         onChange={(value) => setAmount(value)}
         className="dropdown-input"
       />
-
-      <Dropdown
-        options={Object.keys(currencies).map(currencyCode => ({
-          value: currencyCode,
-          label: `${currencies[currencyCode].name} (${currencyCode})`
-        }))}
-        selectedValue={fromCurrency}
-        onSelect={(value) => setFromCurrency(value)}
-        className="dropdown"
-      />
-
-      <Dropdown
-        options={Object.keys(currencies).map(currencyCode => ({
-          value: currencyCode,
-          label: `${currencies[currencyCode].name} (${currencyCode})`
-        }))}
-        selectedValue={toCurrency}
-        onSelect={(value) => setToCurrency(value)}
-        className="dropdown"
-      />
-
+  
+      {renderDropdown(fromCurrency, (value) => setFromCurrency(value), currencies)}
+      {renderDropdown(toCurrency, (value) => setToCurrency(value), currencies)}
+  
       <button onClick={calculateConversion}>Рассчитать</button>
-
+  
       {convertedAmount !== null && 
         <ConversionResult amount={convertedAmount} currencyCode={toCurrency} />
       }

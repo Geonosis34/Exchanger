@@ -32,3 +32,23 @@ const Dropdown: React.FC<DropdownProps> = ({ options, selectedValue, onSelect, c
 };
 
 export default Dropdown;
+
+export const renderDropdown = (
+  selectedValue: string, 
+  onSelect: (value: string) => void,
+  currencies: Record<string, { name: string }>
+) => {
+  const options = Object.keys(currencies).map(currencyCode => ({
+    value: currencyCode,
+    label: `${currencies[currencyCode].name} (${currencyCode})`
+  }));
+
+  return (
+    <Dropdown
+      options={options}
+      selectedValue={selectedValue}
+      onSelect={onSelect}
+      className="dropdown"
+    />
+  );
+};
